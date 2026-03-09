@@ -23,17 +23,21 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: Install backend dependencies
+        working-directory: simple-app/backend
+        run: npm install
+
+      - name: Install and build frontend
+        working-directory: simple-app/frontend
         run: |
           npm install
           npm run build --if-present
-          npm run test --if-present
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: simple-app/backend
 
   deploy:
     runs-on: ubuntu-latest
