@@ -4,11 +4,14 @@ import { ref, onMounted } from "vue";
 const message = ref("Loading message from backend...");
 const error = ref("");
 
+const apiBaseUrl =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
+
 async function loadMessage() {
   try {
     error.value = "";
 
-    const response = await fetch("http://localhost:3001/api/hello");
+    const response = await fetch(`${apiBaseUrl}/api/hello`);
 
     if (!response.ok) {
       throw new Error(`HTTP error: ${response.status}`);
@@ -37,6 +40,8 @@ onMounted(() => {
     <p v-if="error" class="error">{{ error }}</p>
 
     <button @click="loadMessage">Call Backend Again</button>
+
+    <p class="small">API Base URL: {{ apiBaseUrl }}</p>
   </main>
 </template>
 
@@ -67,5 +72,11 @@ button {
   background: #42b883;
   color: white;
   border-radius: 6px;
+}
+
+.small {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #666;
 }
 </style>
