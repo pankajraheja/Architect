@@ -1,47 +1,74 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
+import { PublicClientApplication } from "@azure/msal-browser";
+import { msalConfig, loginRequest } from "./authConfig";
 
-const message = ref("Loading message from backend...");
+const msalInstance = new PublicClientApplication(msalConfig);
+
+const userName = ref("");
+const accessToken = ref("");
+const protectedMessage = ref("");
 const error = ref("");
 
-const apiBaseUrl =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:3002";
-
-async function loadMessage() {
+async function signIn() {
   try {
     error.value = "";
 
-    const response = await fetch(`${apiBaseUrl}/api/hello`);
+    await msalInstance.initialize();
 
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
+    const loginResponse = await msalInstance.loginPopup(loginRequest);
+    userName.value = loginResponse.account?.username || "Signed in user";
 
-    const data = await response.json();
-    message.value = data.message;
+    const tokenResponse = await msalInstance.acquireTokenSilent({
+      ...loginRequest,
+      account: loginResponse.account
+    });
+
+    accessToken.value = tokenResponse.accessToken;
   } catch (err) {
-    error.value = "Could not load backend message.";
-    message.value = "";
-    console.error("Frontend fetch error:", err);
+    console.error("Login error:", err);
+    error.value = "Login failed.";
   }
 }
 
-onMounted(() => {
-  loadMessage();
-});
+async function callProtectedApi() {
+  try {
+    error.value = "";
+    protectedMessage.value = "";
+
+    const response = await fetch("http://localhost:3001/api/protected", {
+      headers: {
+        Authorization: `Bearer ${accessToken.value}`
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const data = await response.json();
+    protectedMessage.value = data.message;
+  } catch (err) {
+    console.error("Protected API error:", err);
+    error.value = "Protected API call failed.";
+  }
+}
 </script>
 
 <template>
   <main class="container">
-    <h1>Simple Vue + Express App</h1>
-    <p>This message comes from the backend API:</p>
+    <h1>Vue + Express + Microsoft Login</h1>
 
-    <p v-if="message" class="message">{{ message }}</p>
+    <button @click="signIn">Sign in with Microsoft</button>
+
+    <p v-if="userName">Signed in as: {{ userName }}</p>
+
+    <button :disabled="!accessToken" @click="callProtectedApi">
+      Call Protected Backend API
+    </button>
+
+    <p v-if="protectedMessage" class="message">{{ protectedMessage }}</p>
     <p v-if="error" class="error">{{ error }}</p>
-
-    <button @click="loadMessage">Call Backend Again</button>
-
-    <p class="small">API Base URL: {{ apiBaseUrl }}</p>
   </main>
 </template>
 
@@ -53,18 +80,6 @@ onMounted(() => {
   text-align: center;
 }
 
-.message {
-  color: #1f7a1f;
-  font-weight: bold;
-  margin: 20px 0;
-}
-
-.error {
-  color: #b00020;
-  font-weight: bold;
-  margin: 20px 0;
-}
-
 button {
   padding: 10px 16px;
   border: none;
@@ -72,11 +87,23 @@ button {
   background: #42b883;
   color: white;
   border-radius: 6px;
+  margin: 10px;
 }
 
-.small {
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.message {
+  color: #1f7a1f;
+  font-weight: bold;
   margin-top: 20px;
-  font-size: 12px;
-  color: #666;
+}
+
+.error {
+  color: #b00020;
+  font-weight: bold;
+  margin-top: 20px;
 }
 </style>
